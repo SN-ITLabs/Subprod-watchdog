@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+    <element label="Registered Instance" max_length="40" name="x_snc_subprodwatch_registered_instances" type="collection">
+        <element label="Instance Name" max_length="40" name="instance_name" type="string"/>
+        <element label="Last Clone Date" max_length="40" name="last_clone_date" type="glide_date_time"/>
+        <element label="Password" max_length="255" name="password" type="password2"/>
+        <element choice="1" label="Type" max_length="40" name="type" type="choice">
+            <choice>
+                <element label="HI" value="hi"/>
+                <element label="Partner Portal" value="partnerportal"/>
+                <element label="Surf" value="surf"/>
+            </choice>
+        </element>
+        <element label="Username" max_length="40" name="username" type="string"/>
+        <element label="Version" max_length="40" name="version" type="string"/>
+    </element>
+</database>

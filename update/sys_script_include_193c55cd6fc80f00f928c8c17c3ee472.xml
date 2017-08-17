@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_snc_subprodwatch.SubProdWatchDogHelper</api_name>
+        <client_callable>false</client_callable>
+        <description/>
+        <name>SubProdWatchDogHelper</name>
+        <script><![CDATA[var SubProdWatchDogHelper = Class.create();
+SubProdWatchDogHelper.prototype = {
+	initialize: function() {
+	},
+	
+	runValidationOnRegisteredInstances: function(){
+		 var regInstncs = new GlideRecord('x_snc_subprodwatch_registered_instances');
+		 gs.info('SubProd Test');
+		 while(regInstncs.next()){
+			 gs.info('1 iterate  ' +regInstncs.instance_name);
+			 updateIncorrectEndpoints(regInstncs);
+		 }
+	},
+	
+	updateIncorrectEndpoints : function(current){
+		var request = new sn_ws.RESTMessageV2();
+		request.setHttpMethod('get');
+		gs.info('1 iterate  ' +current.instance_name);
+		request.setBasicAuth(current.username, current.password.getDecryptedValue());
+		var trgtInst = this._fetchInstanceEnv(current.instance_name);
+		gs.info('iterate  ' +current.instance_name);
+		if(!trgtInst){
+			return;
+		}
+		var instanceURL = this._constructURL(current.instance_name,current.type);
+// 		this._correctRestEndpoints(instanceURL, request, trgtInst);
+// 		this._correctSOAPEndpoints(instanceURL, request, trgtInst);
+// 		this._correctSystemProperties(instanceURL, request, trgtInst);
+	},
+	
+	/**
+		construct target instance URLs
+ 	*/
+	_constructURL : function(instanceName,type){
+		var instance;
+		
+		if(type === 'partnerportal'){
+			if(instanceName.indexOf('partnerportal') == -1){
+				instanceName = type + (instanceName.replace('PP',''));
+			}
+		}
+		instance = 'https://'+instanceName+'.service-now.com'; //https://surfdev5.service-now.com/
+		return instance;
+	},
+	
+	_fetchInstanceEnv : function(instanceName){
+		var instUse = 0;
+		var sourceInstRel = '';
+		var releaseConfig = new GlideRecord('x_snc_subprodwatch_release_calendar_configuration');
+		releaseConfig.addQuery('instance_name',instanceName);
+		releaseConfig.addQuery('release.end_date','>',new GlideDateTime().getDisplayValue());
+		releaseConfig.query();
+		while(releaseConfig.next()){
+			instUse++;
+			sourceInstRel = releaseConfig;
+		}
+		if(instUse>1){
+			gs.addErrorMessage('Instance is used in more than One Release.');
+			return '';
+		}
+		if(instUse==0){
+			gs.addErrorMessage('Instance in not used in active Release Or Invalid Instance Name. Please Check');
+			return '';
+		}
+		return sourceInstRel;
+	},
+	
+	_correctRestEndpoints : function(instanceURL, request, trgtInst){
+		
+		var i,j ;
+		var restMsg = "";
+		
+		//get all rest messages from the target instance
+		request.setEndpoint(instanceURL + "/api/now/table/sys_rest_message");
+		var response = request.execute();
+		var restMessages = JSON.parse(response.getBody());
+		
+		var configRestValues = new GlideRecord('x_snc_subprodwatch_configuration');
+		configRestValues.addQuery('config_type','rest');
+		
+		if(restMessages.error != null){
+			return;
+		}
+		for(i=0 ; i < restMessages.result.length ; i++){
+			restMsg = restMessages.result[i];
+			var endpoint = restMsg.rest_endpoint;
+			if(endpoint){
+				var restEndpoint = endpoint.replace("http://", "").replace("https://","").replace("www.","");
+				
+				//fetch the values from the configuration table to check for endpoint
+				configRestValues.addQuery('name',restMsg.name);
+				configRestValues.query();
+				if(configRestValues.next()){
+					
+					// get the configured instance that is to be used for that release
+					var configdInst = new GlideRecord('x_snc_subprodwatch_release_calendar_configuration');
+					configdInst.addQuery('release', trgtInst.release);
+					configdInst.addQuery('instance_type', configRestValues.instance_type);
+					configdInst.addQuery('environment', trgtInst.environment);
+					configdInst.query();
+					if(configdInst.next()){
+						// perform the check to see if endpoint used is valid
+						/** to -do work on regex again 
+						*/
+						var tarConn = (/\w+?(?=\.)/.exec(restEndpoint)).toString();
+						var expctConn = configdInst.instance_name;
+						
+						if(tarConn != expctConn){
+							request.setHttpMethod('PUT');
+							request.setEndpoint(request.getEndpoint()+'/'+restMsg.sys_id);
+							var crctdValue = endpoint.replace(tarConn, expctConn);
+							request.setRequestBody('{"rest_endpoint":"'+ crctdValue + '"}');
+							var status = request.execute();
+				            if(!status.haveError())
+								this._logChanges(trgtInst, endpoint, crctdValue, 'REST Messages', restMsg.name);
+							//resetting to resuse the request
+							request.setEndpoint(instanceURL + "/api/now/table/sys_rest_message");
+							request.setHttpMethod('get');
+						}
+					}
+				}
+				
+				else{
+					this._checkForProdConnection(request, restMsg, restEndpoint, 'REST', trgtInst);
+				}
+			}
+		}
+		
+	},
+	
+	_correctSOAPEndpoints : function(instanceURL, request, trgtInst){
+		
+		var i,j ;
+		var soapMsg = "";
+		
+		//get all soap messages from the target instance
+		request.setEndpoint(instanceURL + "/api/now/table/sys_soap_message");
+		var response = request.execute();
+		var soapMessages = JSON.parse(response.getBody());
+		
+		if(soapMessages.error != null){
+			return;
+		}
+		
+		var configSoapValues = new GlideRecord('x_snc_subprodwatch_configuration');
+		configSoapValues.addQuery('config_type','soap');
+		/**
+		Add the other login type too as a or query  OR as contains 'soap'
+ 		*/
+		for(i=0 ; i < soapMessages.result.length ; i++){
+			soapMsg = soapMessages.result[i];
+			var endpoint = soapMsg.wsdl;
+			var soap_name = soapMsg.name;
+			if(endpoint){
+				var soapEndpoint = endpoint.replace("http://", "").replace("https://","").replace("www.","");
+				
+				//fetch the values from the configuration table
+				//gs.info('sneha123:' + soapMsg.name);
+				//configSoapValues.addQuery('name',soap_name);
+				configSoapValues.query();
+				while(configSoapValues.next()){
+					if(configSoapValues.name == soap_name){
+					// get the configured instance that is to be used for that release
+					var configdInst = new GlideRecord('x_snc_subprodwatch_release_calendar_configuration');
+					configdInst.addQuery('release', trgtInst.release);
+					configdInst.addQuery('instance_type', configSoapValues.instance_type);
+					configdInst.addQuery('environment', trgtInst.environment);
+					configdInst.query();
+					if(configdInst.next()){
+						// perform the check to see if endpoint used is valid
+						/** to -do see if regex can be improved
+						*/
+						var tarConn = /\w+?(?=\.)/.exec(soapEndpoint).toString();
+						var expctConn = configdInst.instance_name;
+						if(tarConn != expctConn){
+							request.setHttpMethod('PUT');
+							request.setEndpoint(request.getEndpoint()+'/'+soapMsg.sys_id);
+							var crctdValue = endpoint.replace(tarConn, expctConn);
+							request.setRequestBody('{"wsdl":"'+ crctdValue + '"}');
+							var status = request.execute();
+				            if(!status.haveError())
+								this._logChanges(trgtInst, endpoint, crctdValue, 'SOAP Messages', soapMsg.name);
+							//resetting to reuse the request
+							request.setEndpoint(instanceURL + "/api/now/table/sys_soap_message");
+							request.setHttpMethod('get');
+						}
+					}
+				}
+					else{
+						this._checkForProdConnection(request, soapMsg, soapEndpoint, 'SOAP', trgtInst);
+					}
+				}
+				
+// 				else{
+// 					this._checkForProdConnection(request, soapMsg, soapEndpoint, 'SOAP', trgtInst);
+// 				}
+			}
+		}
+	},
+	
+	_correctSystemProperties : function(instanceURL, request, trgtInst){
+		
+		var configSyspropValues = new GlideRecord('x_snc_subprodwatch_configuration');
+		configSyspropValues.addQuery('config_type','sysprop');
+		configSyspropValues.query();
+		
+		while(configSyspropValues.next()){
+			 
+			request.setEndpoint(instanceURL + "/api/now/table/sys_properties");
+			request.setQueryParameter('sysparm_query','name='+configSyspropValues.name);
+		    var response = request.execute();
+		    var sysProperty = JSON.parse(response.getBody());
+		    
+			if(sysProperty.error != null || sysProperty.result.length === 0)
+				return;
+			
+			 var endpoint = sysProperty.result[0].value;
+			 var formatEndpoint = endpoint.replace("http://", "").replace("https://","").replace("www.","");
+			 var configdInst = new GlideRecord('x_snc_subprodwatch_release_calendar_configuration');
+			 configdInst.addQuery('release', trgtInst.release);
+			 configdInst.addQuery('instance_type', configSyspropValues.instance_type);
+			 configdInst.addQuery('environment', trgtInst.environment);
+			 configdInst.query();
+			
+			if(configdInst.next()){
+						// perform the check to see if endpoint used is valid
+						/** to -do see if regex can be improved
+						*/
+						var tarConn = /\w+?(?=\.)/.exec(formatEndpoint).toString();
+						var expctConn = configdInst.instance_name;
+						if(tarConn != expctConn){
+							request.setHttpMethod('PUT');
+							request.setEndpoint(request.getEndpoint()+'/'+sysProperty.result[0].sys_id);
+							var crctdValue = endpoint.replace(tarConn, expctConn);
+							request.setRequestBody('{"value":"'+ crctdValue + '"}');
+							var status = request.execute();
+				            if(!status.haveError())
+							    this._logChanges(trgtInst, endpoint, crctdValue, 'System Properties', configSyspropValues.name);
+							//resetting the request to resue again
+							request.setEndpoint(instanceURL + "/api/now/table/sys_properties");
+							request.setHttpMethod('get');
+						}
+					else{
+							this._checkForProdConnection(instanceURL + "/api/now/table/sys_properties", sysProperty.result, formatEndpoint, 'sys_prop', trgtInst);
+					
+					}
+			}
+		}
+	},
+	
+	_checkForProdConnection : function(request, message, endpoint, calledFrom, trgtInst) {
+		
+		var prodEndpts = gs.getProperty('x_snc_subprodwatch.prod.endpoints','Value not defined');
+		var prodVals = prodEndpts.split(',');
+		var oldValue ='', endpointType= '';
+		
+		for(j=0; j<prodVals.length; j++ ){
+			var formattedProdVal = (prodVals[j]).replace("http://", "").replace("https://","").replace("www.","");
+			if(endpoint.indexOf(formattedProdVal)!=-1){
+				request.setHttpMethod('PUT');
+				request.setEndpoint(request.getEndpoint()+'/'+message.sys_id);
+				switch(calledFrom){
+					case 'SOAP':
+						oldValue = message.wsdl;
+						endpointType = 'SOAP Messages';
+						request.setRequestBody('{"wsdl":""}');
+						break;
+					case 'REST':
+						oldValue = message.rest_endpoint;
+						endpointType = 'REST Messages';
+						request.setRequestBody('{"rest_endpoint":""}');
+						break;
+					case 'sys_prop':
+						oldValue = message.value;
+						endpointType = 'System Properties';
+						request.setRequestBody('{"value":""}');
+				}
+				var status = request.execute();
+				var res = status.getBody();
+				if(!status.haveError())
+					  this._logChanges(trgtInst, oldValue, '', endpointType , message.name);
+			}
+	    }
+	},
+	
+	_logChanges : function(instance, oldValue, newValue, endpointType, name){
+	                 
+		var logEntry = new GlideRecord('x_snc_subprodwatch_audit');
+		logEntry.initialize();
+		logEntry.setValue('release', instance.release);
+		logEntry.setValue('target_instance', instance.instance_name);
+		logEntry.setValue('old_value', oldValue);
+		logEntry.setValue('new_value', newValue);
+		logEntry.setValue('endpoint_type', endpointType);
+		logEntry.setValue('endpoint_name', name);
+		logEntry.update();
+	},
+				
+				type: 'SubProdWatchDogHelper'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>sneha</sys_created_by>
+        <sys_created_on>2017-07-17 12:11:43</sys_created_on>
+        <sys_customer_update>true</sys_customer_update>
+        <sys_id>193c55cd6fc80f00f928c8c17c3ee472</sys_id>
+        <sys_mod_count>98</sys_mod_count>
+        <sys_name>SubProdWatchDogHelper</sys_name>
+        <sys_package display_value="SubProdWatchDog" source="x_snc_subprodwatch">ab0e3c394fb3f600afef74828110c795</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_replace_on_upgrade>false</sys_replace_on_upgrade>
+        <sys_scope display_value="SubProdWatchDog">ab0e3c394fb3f600afef74828110c795</sys_scope>
+        <sys_update_name>sys_script_include_193c55cd6fc80f00f928c8c17c3ee472</sys_update_name>
+        <sys_updated_by>sneha</sys_updated_by>
+        <sys_updated_on>2017-08-07 12:02:20</sys_updated_on>
+    </sys_script_include>
+</record_update>

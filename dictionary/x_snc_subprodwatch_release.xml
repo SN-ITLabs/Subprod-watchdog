@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+    <element label="Release" max_length="40" name="x_snc_subprodwatch_release" type="collection">
+        <element label="End date" mandatory="true" max_length="40" name="end_date" type="glide_date_time"/>
+        <element display="true" label="Release name" max_length="40" name="release_name" type="string"/>
+        <element label="Start date" mandatory="true" max_length="40" name="start_date" type="glide_date_time"/>
+    </element>
+</database>

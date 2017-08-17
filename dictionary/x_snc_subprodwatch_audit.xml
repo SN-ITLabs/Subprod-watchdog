@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+    <element label="Audit" max_length="40" name="x_snc_subprodwatch_audit" type="collection">
+        <element label="Endpoint name" max_length="40" name="endpoint_name" type="string"/>
+        <element label="Endpoint type" max_length="40" name="endpoint_type" type="string"/>
+        <element label="New value" max_length="200" name="new_value" type="string"/>
+        <element label="Old value" max_length="200" name="old_value" type="string"/>
+        <element label="Release" max_length="32" name="release" reference="x_snc_subprodwatch_release" type="reference"/>
+        <element label="Target instance" max_length="40" name="target_instance" type="string"/>
+        <index name="index">
+            <element name="release"/>
+        </index>
+    </element>
+</database>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+    <element label="Release Calendar Configuration" max_length="40" name="x_snc_subprodwatch_release_calendar_configuration" type="collection">
+        <element choice="1" label="Environment" max_length="40" name="environment" type="choice">
+            <choice>
+                <element label="Dev" value="dev"/>
+                <element label="QA" value="qa"/>
+            </choice>
+        </element>
+        <element label="Instance Name" max_length="40" name="instance_name" type="string"/>
+        <element choice="1" label="Instance Type" max_length="40" name="instance_type" type="choice">
+            <choice>
+                <element label="AppStore" value="appstore"/>
+                <element label="HI" value="hi"/>
+                <element label="Partner Portal" value="partnerportal"/>
+                <element label="SURF" value="surf"/>
+            </choice>
+        </element>
+        <element label="Release" max_length="32" name="release" reference="x_snc_subprodwatch_release" type="reference"/>
+        <index name="index">
+            <element name="release"/>
+        </index>
+    </element>
+</database>

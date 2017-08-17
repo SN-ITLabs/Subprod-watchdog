@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record_update sys_domain="global" table="sys_ui_action">
+    <sys_ui_action action="INSERT_OR_UPDATE">
+        <action_name/>
+        <active>true</active>
+        <client>false</client>
+        <comments/>
+        <condition/>
+        <form_action>true</form_action>
+        <form_button>true</form_button>
+        <form_context_menu>false</form_context_menu>
+        <form_link>false</form_link>
+        <hint/>
+        <list_action>false</list_action>
+        <list_banner_button>false</list_banner_button>
+        <list_button>false</list_button>
+        <list_choice>false</list_choice>
+        <list_context_menu>false</list_context_menu>
+        <list_link>false</list_link>
+        <list_save_with_form_button>false</list_save_with_form_button>
+        <name>Run Prod Validation</name>
+        <onclick/>
+        <order>100</order>
+        <script><![CDATA[performValidation();
+
+function performValidation(){
+	var subProdHelper = new SubProdWatchDogHelper();
+	subProdHelper.updateIncorrectEndpoints(current);
+	action.setRedirectURL(current);
+}]]></script>
+        <show_insert>false</show_insert>
+        <show_multiple_update>false</show_multiple_update>
+        <show_query>false</show_query>
+        <show_update>true</show_update>
+        <sys_class_name>sys_ui_action</sys_class_name>
+        <sys_created_by>sneha</sys_created_by>
+        <sys_created_on>2017-07-12 11:19:31</sys_created_on>
+        <sys_customer_update>true</sys_customer_update>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>4178af9b4f7f7a00afef74828110c7d6</sys_id>
+        <sys_mod_count>72</sys_mod_count>
+        <sys_name>Run Prod Validation</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="SubProdWatchDog" source="x_snc_subprodwatch">ab0e3c394fb3f600afef74828110c795</sys_package>
+        <sys_policy/>
+        <sys_replace_on_upgrade>false</sys_replace_on_upgrade>
+        <sys_scope display_value="SubProdWatchDog">ab0e3c394fb3f600afef74828110c795</sys_scope>
+        <sys_update_name>sys_ui_action_4178af9b4f7f7a00afef74828110c7d6</sys_update_name>
+        <sys_updated_by>sneha</sys_updated_by>
+        <sys_updated_on>2017-07-17 12:11:26</sys_updated_on>
+        <table>x_snc_subprodwatch_registered_instances</table>
+        <ui11_compatible>true</ui11_compatible>
+        <ui16_compatible>false</ui16_compatible>
+    </sys_ui_action>
+</record_update>

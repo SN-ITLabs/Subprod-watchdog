@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database>
+    <element label="Integration Configuration" max_length="40" name="x_snc_subprodwatch_configuration" type="collection">
+        <element choice="1" label="Config type" mandatory="true" max_length="40" name="config_type" type="choice">
+            <choice>
+                <element label="REST" value="rest"/>
+                <element label="SOAP" value="soap"/>
+                <element label="System Properties" value="sysprop"/>
+            </choice>
+        </element>
+        <element choice="1" label="Instance type" mandatory="true" max_length="40" name="instance_type" type="choice">
+            <choice>
+                <element label="HI" value="hi"/>
+                <element label="Partner Portal" value="partnerportal"/>
+                <element label="SAP" value="sap"/>
+                <element label="Surf" value="surf"/>
+            </choice>
+        </element>
+        <element label="Name" mandatory="true" max_length="40" name="name" type="string"/>
+        <element label="Password" max_length="40" name="password" type="password"/>
+        <element label="Username" max_length="40" name="username" type="string"/>
+    </element>
+</database>
